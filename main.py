@@ -16,6 +16,7 @@ class MyChart(Chart):
         pvc_storage_size: str = "100Mi"
         pvc_storage_class_name: str = "rawfile-btrfs"
         datadir: str = "/var/www/html/data"
+        host: str = "nextcloud.kube.home"
 
         # define resources here
         labels: dict  = {"app": app}
@@ -28,11 +29,44 @@ class MyChart(Chart):
                 labels=labels
             ),
             spec=k8s.ServiceSpec(
-                type='LoadBalancer',
+                type='ClusterIP',
                 ports=[
                     k8s.ServicePort(port=80, target_port=k8s.IntOrString.from_string('http'), protocol='TCP')
                 ],
                 selector=labels
+            )
+        )
+        
+        ##### Ingress
+        k8s.KubeIngress(
+            self, 'ingress',
+            metadata=k8s.ObjectMeta(
+                name=f"{app}-ingress",
+                labels=labels
+            ),
+            spec=k8s.IngressSpec(
+                ingress_class_name="nginx",
+                rules=[
+                    k8s.IngressRule(
+                        host=host,
+                        http=k8s.HttpIngressRuleValue(
+                            paths=[
+                                k8s.HttpIngressPath(
+                                    path="/",
+                                    path_type="Prefix",
+                                    backend=k8s.IngressBackend(
+                                        service=k8s.IngressServiceBackend(
+                                            name=f"{app}-svc",
+                                            port=k8s.ServiceBackendPort(
+                                                number=80
+                                            )
+                                        )
+                                    )
+                                )
+                            ]
+                        )
+                    )
+                ]
             )
         )
         
