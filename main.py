@@ -13,7 +13,7 @@ class MyChart(Chart):
         image: str = "nextcloud:apache"
         pod_replicas: int = 1
         pvc_name: str = f"{app}-data"
-        pvc_storage_size: str = "100Mi"
+        pvc_storage_size: str = "1Gi"
         pvc_storage_class_name: str = "rawfile-btrfs"
         datadir: str = "/var/www/html/data"
         host: str = "nextcloud.kube.home"
@@ -89,6 +89,16 @@ class MyChart(Chart):
         )
         
         ##### Deployment
+        probe_http_get = k8s.HttpGetAction(
+            path="/status.php",
+            port=k8s.IntOrString.from_string("http"),
+            http_headers=[
+                k8s.HttpHeader(
+                    name="Host",
+                    value="nextcloud.kube.home"
+                )
+            ]
+        )
         k8s.KubeDeployment(
             self, 'deployment',
             metadata=k8s.ObjectMeta(
@@ -122,7 +132,31 @@ class MyChart(Chart):
                                 ),
                                 volume_mounts=[
                                     k8s.VolumeMount(name=pvc_name, mount_path=datadir)
-                                ]
+                                ],
+                                liveness_probe=k8s.Probe(
+                                    http_get=probe_http_get,
+                                    initial_delay_seconds=10,
+                                    period_seconds=10,
+                                    timeout_seconds=5,
+                                    success_threshold=1,
+                                    failure_threshold=3
+                                ),
+                                readiness_probe=k8s.Probe(
+                                    http_get=probe_http_get,
+                                    initial_delay_seconds=10,
+                                    period_seconds=10,
+                                    timeout_seconds=5,
+                                    success_threshold=1,
+                                    failure_threshold=3
+                                ),
+                                startup_probe=k8s.Probe(
+                                    http_get=probe_http_get,
+                                    initial_delay_seconds=10,
+                                    period_seconds=10,
+                                    timeout_seconds=5,
+                                    success_threshold=1,
+                                    failure_threshold=3
+                                )
                             ),
                             k8s.Container(
                                 name=f"{app}-cron",
